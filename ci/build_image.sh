@@ -71,22 +71,26 @@ build_and_push() {
 
 case ${target} in
     all )
-        build_and_push builder "$BUILD_IMAGE-$CHKSUM"
-        build_and_push releaser "$RELEASER_IMAGE-$GIT_REF" "$BUILD_IMAGE-$CHKSUM"
-        build_and_push runner "$IMAGE:$GIT_REF" "$BUILD_IMAGE-$CHKSUM" "$RELEASER_IMAGE-$GIT_REF"
         build_and_push plt "$PLT_IMAGE-$CHKSUM" "$BUILD_IMAGE-$CHKSUM"
+        build_and_push runner "$IMAGE:$GIT_REF" "$BUILD_IMAGE-$CHKSUM" "$RELEASER_IMAGE-$GIT_REF"
+        build_and_push releaser "$RELEASER_IMAGE-$GIT_REF" "$BUILD_IMAGE-$CHKSUM"
+        build_and_push builder "$BUILD_IMAGE-$CHKSUM"
         ;;
     builder )
         build_and_push builder "$BUILD_IMAGE-$CHKSUM"
         ;;
     releaser )
         build_and_push releaser "$RELEASER_IMAGE-$GIT_REF" "$BUILD_IMAGE-$CHKSUM"
+        build_and_push builder "$BUILD_IMAGE-$CHKSUM"
         ;;
     runner )
         build_and_push runner "$IMAGE:$GIT_REF" "$BUILD_IMAGE-$CHKSUM" "$RELEASER_IMAGE-$GIT_REF"
+        build_and_push releaser "$RELEASER_IMAGE-$GIT_REF" "$BUILD_IMAGE-$CHKSUM"
+        build_and_push builder "$BUILD_IMAGE-$CHKSUM"
         ;;
     plt )
         build_and_push plt "$PLT_IMAGE-$CHKSUM" "$BUILD_IMAGE-$CHKSUM"
+        build_and_push builder "$BUILD_IMAGE-$CHKSUM"
         ;;
     * )
         echo "Invalid image target: ${target}" 1>&2

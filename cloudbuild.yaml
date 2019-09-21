@@ -7,8 +7,8 @@ steps:
   - --build-arg=RUNNER_IMAGE=$_RUNNER_IMAGE
   - --destination=gcr.io/$PROJECT_ID/service_discovery:$COMMIT_SHA
   - --cache=true
-  - --cache-ttl=48h
+  - --cache-ttl=8h
 
 substitutions:
-  _BASE_IMAGE: erlang:22.0.7-alpine
-  _RUNNER_IMAGE: alpine:3.9
+  _BASE_IMAGE: gcr.io/$PROJECT_ID/erlang:22
+  _RUNNER_IMAGE: gcr.io/$PROJECT_ID/alpine:3.10

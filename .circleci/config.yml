@@ -75,7 +75,7 @@ workflows:
 
       - docker-build-and-push:
           requires:
-            - rebar3/ct
+          - rebar3/ct
           filters:
             branches:
               only:
