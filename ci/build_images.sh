@@ -48,20 +48,16 @@ BUILD_IMAGE=${IMAGE}:builder
 RELEASER_IMAGE=${IMAGE}:releaser
 PLT_IMAGE=${IMAGE}:plt
 
-CHKSUM_CMD=${CHKSUM_CMD:-cksum}
-
-CHKSUM=$(cat rebar.config rebar.lock | $CHKSUM_CMD | awk '{print $1}')
 GIT_REF=$(git rev-parse HEAD) # or with --short
 GIT_BRANCH=$(git symbolic-ref --short HEAD)
 
-
-
-docker build --target $target --tag $image --cache-from=${IMAGE}:master \
+docker buildx build --target runner \
+       --push \
+       -o type=image \
+       --tag ${IMAGE}:${GIT_BRANCH} \
+       --tag ${IMAGE}:${GIT_REF} \
        --cache-from=${IMAGE}:${GIT_BRANCH} \
-       --cache-to=${IMAGE}:${GIT_BRANCH} \
-       --build-arg BUILDKIT_INLINE_CACHE=true -f Dockerfile .
-
-! $push || docker push $image
-
+       --cache-from=${IMAGE}:master \
+       --cache-to=type=inline -f Dockerfile .
 
 echo "Finished building ${IMAGE}:${GIT_REF}"

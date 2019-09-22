@@ -64,7 +64,7 @@ build_and_push() {
     cache_images=( "${cache_images[@]/#/--cache-from=}" )
 
     docker build --target $target --tag $image --cache-from=$image "${cache_images[@]}" \
-           --build-arg BUILDKIT_INLINE_CACHE=true -f Dockerfile .
+           -f Dockerfile .
 
     ! $push || docker push $image
 }
