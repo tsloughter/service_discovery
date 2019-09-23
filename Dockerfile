@@ -3,7 +3,9 @@ FROM gcr.io/adoptingerlang/erlang:22.1-alpine as builder
 
 # git for fetching non-hex depenencies
 # add any other Alpine libraries needed to compile the project here
-RUN apk add --no-cache git
+RUN --mount=type=cache,id=apk,sharing=locked,target=/var/cache/apk \
+    ln -vs /var/cache/apk /etc/apk/cache && \
+    apk add --update git
 
 WORKDIR /app/src
 
@@ -23,7 +25,9 @@ RUN --mount=target=. \
 FROM prod_compiled as releaser
 
 # tar for unpacking the target system
-RUN apk add --no-cache tar && \
+RUN --mount=type=cache,id=apk,sharing=locked,target=/var/cache/apk \
+    ln -vs /var/cache/apk /etc/apk/cache && \
+    apk add --update tar && \
     mkdir -p /opt/rel
 
 RUN --mount=target=. \
@@ -34,7 +38,9 @@ RUN --mount=target=. \
 FROM alpine:3.10 as runner
 
 # openssl needed by the crypto app
-RUN apk add --no-cache openssl ncurses
+RUN --mount=type=cache,id=apk,sharing=locked,target=/var/cache/apk \
+    ln -vs /var/cache/apk /etc/apk/cache && \
+    apk add --update openssl ncurses
 
 WORKDIR /opt/service_discovery
 
