@@ -1,50 +1,44 @@
 # syntax = docker/dockerfile:experimental
 FROM gcr.io/adoptingerlang/erlang:22.1-alpine as builder
 
+WORKDIR /app/src
+
+ENV REBAR_BASE_DIR=/app/_build
+
 # git for fetching non-hex depenencies
 # add any other Alpine libraries needed to compile the project here
 RUN --mount=type=cache,id=apk,sharing=locked,target=/var/cache/apk \
     ln -vs /var/cache/apk /etc/apk/cache && \
     apk add --update git
 
-WORKDIR /app/src
-
-ENV REBAR_BASE_DIR=/app/_build
-
 # build and cache dependencies as their own layer
 COPY rebar.config rebar.lock .
-RUN --mount=id=hex-cache,type=cache,target=/root/.cache/rebar3 \
+RUN --mount=id=hex-cache,type=cache,sharing=locked,target=/root/.cache/rebar3 \
     rebar3 compile
 
 FROM builder as prod_compiled
 
 RUN --mount=target=. \
-    --mount=id=hex-cache,type=cache,target=/root/.cache/rebar3 \
+    --mount=id=hex-cache,type=cache,sharing=locked,target=/root/.cache/rebar3 \
     rebar3 as prod compile
 
 FROM prod_compiled as releaser
 
+# create the directory to unpack the release to
+RUN mkdir -p /opt/rel
+
 # tar for unpacking the target system
 RUN --mount=type=cache,id=apk,sharing=locked,target=/var/cache/apk \
-    ln -vs /var/cache/apk /etc/apk/cache && \
-    apk add --update tar && \
-    mkdir -p /opt/rel
+    apk add --update tar
 
 RUN --mount=target=. \
-    --mount=id=hex-cache,type=cache,target=/root/.cache/rebar3 \
+    --mount=id=hex-cache,type=cache,sharing=locked,target=/root/.cache/rebar3 \
     rebar3 as prod tar && \
     tar -zxvf $REBAR_BASE_DIR/prod/rel/*/*.tar.gz -C /opt/rel
 
 FROM alpine:3.10 as runner
 
-# openssl needed by the crypto app
-RUN --mount=type=cache,id=apk,sharing=locked,target=/var/cache/apk \
-    ln -vs /var/cache/apk /etc/apk/cache && \
-    apk add --update openssl ncurses
-
 WORKDIR /opt/service_discovery
-
-COPY --from=releaser /opt/rel .
 
 ENV COOKIE=service_discovery \
     # write files generated during startup to /tmp
@@ -54,45 +48,12 @@ ENV COOKIE=service_discovery \
     LOGGER_LEVEL=debug \
     SCHEDULERS=1
 
+# openssl needed by the crypto app
+RUN --mount=type=cache,id=apk,sharing=locked,target=/var/cache/apk \
+    ln -vs /var/cache/apk /etc/apk/cache && \
+    apk add --update openssl ncurses
+
+COPY --from=releaser /opt/rel .
+
 ENTRYPOINT ["/opt/service_discovery/bin/service_discovery"]
-CMD ["foreground"]
-
-# stages for development and testing
-
-FROM builder as test_compiled
-
-RUN --mount=target=. \
-    --mount=id=hex-cache,type=cache,target=/root/.cache/rebar3 \
-    rebar3 as test compile
-
-# image for running common test suites
-FROM test_compiled as tester
-
-RUN apk add --no-cache py-pip python-dev libffi-dev openssl-dev gcc libc-dev make && \
-    pip install docker-compose
-
-RUN --mount=target=. \
-    --mount=id=hex-cache,type=cache,target=/root/.cache/rebar3 \
-    rebar3 as test compile
-
-ENTRYPOINT ["rebar3"]
-CMD ["ct"]
-
-# image for caching dialyzer plt
-FROM builder as plt
-
-RUN --mount=id=hex-cache,type=cache,target=/root/.cache/rebar3 \
-    rebar3 dialyzer --succ-typings=false
-
-ENTRYPOINT ["rebar3"]
-CMD ["dialyzer"]
-
-# image to use in tilt when running the release
-FROM builder as devrel
-
-RUN --mount=target=. \
-    --mount=id=hex-cache,type=cache,target=/root/.cache/rebar3 \
-    rebar3 release
-
-ENTRYPOINT ["/src/_build/default/rel/service_discovery/bin/service_discovery"]
 CMD ["foreground"]
