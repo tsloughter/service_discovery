@@ -14,11 +14,13 @@ COPY rebar.config rebar.lock .
 RUN --mount=id=hex-cache,type=cache,target=/root/.cache/rebar3 \
     rebar3 compile
 
+FROM builder as prod_compiled
+
 RUN --mount=target=. \
     --mount=id=hex-cache,type=cache,target=/root/.cache/rebar3 \
-    rebar3 compile
+    rebar3 as prod compile
 
-FROM builder as releaser
+FROM prod_compiled as releaser
 
 # tar for unpacking the target system
 RUN apk add --no-cache tar && \
@@ -31,7 +33,7 @@ RUN --mount=target=. \
 
 FROM alpine:3.10 as runner
 
-# install openssl, needed by the crypto app
+# openssl needed by the crypto app
 RUN apk add --no-cache openssl ncurses
 
 WORKDIR /opt/service_discovery
@@ -49,8 +51,16 @@ ENV COOKIE=service_discovery \
 ENTRYPOINT ["/opt/service_discovery/bin/service_discovery"]
 CMD ["foreground"]
 
+# stages for development and testing
+
+FROM builder as test_compiled
+
+RUN --mount=target=. \
+    --mount=id=hex-cache,type=cache,target=/root/.cache/rebar3 \
+    rebar3 as test compile
+
 # image for running common test suites
-FROM builder as tester
+FROM test_compiled as tester
 
 RUN apk add --no-cache py-pip python-dev libffi-dev openssl-dev gcc libc-dev make && \
     pip install docker-compose
@@ -65,8 +75,7 @@ CMD ["ct"]
 # image for caching dialyzer plt
 FROM builder as plt
 
-RUN --mount=target=. \
-    --mount=id=hex-cache,type=cache,target=/root/.cache/rebar3 \
+RUN --mount=id=hex-cache,type=cache,target=/root/.cache/rebar3 \
     rebar3 dialyzer --succ-typings=false
 
 ENTRYPOINT ["rebar3"]

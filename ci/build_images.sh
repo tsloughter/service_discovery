@@ -5,22 +5,22 @@ set -e
 SCRIPT_DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 cd $SCRIPT_DIR/..
 
-push=false
-target=all
-registry=tsloughter
+push=
+target=runner
+registry=us.gcr.io/adoptingerlang
 
 usage() {
-    echo "Usage: $0 [-p] [-t {builder|releaser|runner|plt|all}] [-r <registry>]"
+    echo "Usage: $0 [-p] [-t {builder|releaser|runner|plt}] [-r <registry>]"
     echo
     echo "  -p  Enable pushing images to registry after build"
-    echo "  -t  Target image to build (default: all)"
+    echo "  -t  Target image to build (default: runner)"
     echo "  -r  Registry to push images"
 }
 
 while getopts ":t:r:p" opt; do
     case ${opt} in
         p )
-            push=true
+            push="--push"
             ;;
         t )
             target=$OPTARG
@@ -51,13 +51,14 @@ PLT_IMAGE=${IMAGE}:plt
 GIT_REF=$(git rev-parse HEAD) # or with --short
 GIT_BRANCH=$(git symbolic-ref --short HEAD)
 
-docker buildx build --target runner \
-       --push \
+docker buildx build --target $target \
+       $push \
        -o type=image \
        --tag ${IMAGE}:${GIT_BRANCH} \
        --tag ${IMAGE}:${GIT_REF} \
        --cache-from=${IMAGE}:${GIT_BRANCH} \
        --cache-from=${IMAGE}:master \
-       --cache-to=type=inline -f Dockerfile .
+       --cache-to=type=inline \
+       .
 
 echo "Finished building ${IMAGE}:${GIT_REF}"
